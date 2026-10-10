@@ -1,0 +1,32 @@
+
+# Scientific computing
+numpy>=1.26,<3
+scipy>=1.11,<2
+pandas>=2.2,<4
+matplotlib>=3.8,<4
+seaborn>=0.13,<1
+scikit-learn>=1.4,<2
+sympy>=1.12,<2
+jupyterlab>=4,<5
+
+# Audio processing
+librosa>=0.10.2,<1
+soundfile>=0.12,<1
+sounddevice>=0.4,<1
+noisereduce>=3,<4
+
+# AI and language models
+transformers>=4.45,<5
+datasets>=3,<5
+tokenizers>=0.20,<1
+accelerate>=1,<2
+sentencepiece>=0.2,<1
+safetensors>=0.4,<1
+
+# Computer vision and utilities
+pillow>=10,<13
+opencv-python>=4.9,<5
+tqdm>=4.66,<5
+requests>=2.31,<3
+pydantic>=2,<3
+python-dotenv>=1,<2
