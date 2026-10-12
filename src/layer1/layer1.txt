@@ -1,0 +1,10 @@
+Layer 1
+VAD Voice-Activity-Detection
+
+Layer utilizzato per l'attivazione del riconoscimento vocale del sistema
+
+Riconoscimento e conseguente attivazione dei layer successivi al momento del riconoscimento vocale del paziente
+Serve inoltre per monitorare le attività del paziente
+    - Richiesta in di soccorsi dopo tot di tempo di silenzio, senza causa enunciata
+    - Riconoscimento di conversazioni esterne al fine di evitare intromissioni
+    - Riconoscimento della persona che assiste il paziente
