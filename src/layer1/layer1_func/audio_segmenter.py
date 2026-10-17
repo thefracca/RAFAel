@@ -1,50 +1,39 @@
 from collections import deque
+
 import numpy as np
 
-from config.config_VAD import (
-    START_CONFIRM_MS,
-    END_SILENCE_MS,
-    PRE_ROLL_MS,
-    FRAME_MS,
-)
+from config.config_VAD import VADConfig
 
 
+class AudioSegmenter:
+    def __init__(self, cfg: VADConfig):
+        self.start_frames = cfg.ms_to_frames(cfg.start_confirm_ms)
+        self.end_frames = cfg.ms_to_frames(cfg.end_silence_ms)
+        self.pre_roll_frames = cfg.ms_to_frames(cfg.pre_roll_ms)
+        self.tail_frames = cfg.ms_to_frames(cfg.tail_ms)
+        self.max_frames = cfg.ms_to_frames(cfg.max_segment_ms)
 
-class AudioSegmenter():
-    def __init__(self):
-        self.start_frames = max(
-            1, round(START_CONFIRM_MS / FRAME_MS)
-        )
-        self.end_frames= max(
-            1, round(END_SILENCE_MS / FRAME_MS)
-        )
-        self.pre_roll_frames = max(
-            1, round(PRE_ROLL_MS / FRAME_MS)
-        )
-
-        self.pre_roll = deque(maxlen=self.pre_roll_frames)
+        # deve contenere anche i frame usati per confermare l'inizio
+        self.pre_roll = deque(maxlen=self.pre_roll_frames + self.start_frames)
         self.speech_frames = []
         self.pending_silence = []
 
         self.active_count = 0
         self.silence_count = 0
+        self.total_frames = 0
         self.speaking = False
 
     def process(self, raw_frame, active):
         """
         Riceve un frame originale e il risultato del VAD.
-
-        Restituisce:
-            (speech_started, completed_audio)
-
+        Restituisce (speech_started, completed_audio).
         completed_audio è None se la registrazione non è terminata.
         """
-
         speech_started = False
         completed_audio = None
 
         if not self.speaking:
-            self.pre_roll.appendleft(raw_frame.copy())
+            self.pre_roll.append(raw_frame.copy())
 
             if active:
                 self.active_count += 1
@@ -54,29 +43,33 @@ class AudioSegmenter():
             if self.active_count >= self.start_frames:
                 self.speaking = True
                 self.speech_frames = list(self.pre_roll)
-                self.prending_silence = []
+                self.pending_silence = []
                 self.silence_count = 0
+                self.total_frames = len(self.speech_frames)
                 speech_started = True
 
             return speech_started, completed_audio
 
+        self.total_frames += 1
+
         if active:
             self.speech_frames.extend(self.pending_silence)
             self.pending_silence.clear()
-
             self.speech_frames.append(raw_frame.copy())
             self.silence_count = 0
-
         else:
             self.pending_silence.append(raw_frame.copy())
             self.silence_count += 1
 
-            if self.silence_count >= self.end_frames:
-                completed_audio = np.concatenate(
-                    self.speech_frames
-                ).astype(np.float32)
+        end_by_silence = self.silence_count >= self.end_frames
+        end_by_length = self.total_frames >= self.max_frames
 
-                self._reset()
+        if end_by_silence or end_by_length:
+            tail = self.pending_silence[: self.tail_frames]
+            completed_audio = np.concatenate(
+                self.speech_frames + tail
+            ).astype(np.float32)
+            self._reset()
 
         return speech_started, completed_audio
 
@@ -84,9 +77,9 @@ class AudioSegmenter():
         self.pre_roll.clear()
         self.speech_frames = []
         self.pending_silence = []
-
         self.active_count = 0
         self.silence_count = 0
+        self.total_frames = 0
         self.speaking = False
 
     def reset(self):

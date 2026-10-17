@@ -1,10 +1,49 @@
-Layer 1
-VAD Voice-Activity-Detection
+# Layer 1: Acquisizione e segmentazione audio
 
-Layer utilizzato per l'attivazione del riconoscimento vocale del sistema
+Ascolta il microfono, rileva quando l'utente parla e produce registrazioni complete, una per ogni frase o turno di parola.
 
-Riconoscimento e conseguente attivazione dei layer successivi al momento del riconoscimento vocale del paziente
-Serve inoltre per monitorare le attività del paziente
-    - Richiesta in di soccorsi dopo tot di tempo di silenzio, senza causa enunciata
-    - Riconoscimento di conversazioni esterne al fine di evitare intromissioni
-    - Riconoscimento della persona che assiste il paziente
+## Contratto
+
+| | |
+|---|---|
+| **Ingresso** | Microfono (stream continuo) |
+| **Uscita** | `np.ndarray`, `float32`, mono, `sample_rate` di `VADConfig` (default 16 kHz) |
+| **Config** | `config/config_VAD.py` → `VADConfig` |
+
+## Utilizzo
+
+```python
+from config.config_VAD import VADConfig
+from src.layer1.main_layer1 import Layer1
+
+with Layer1(VADConfig()) as layer1:
+    while True:
+        audio = layer1.get_recording(timeout=0.1)
+        if audio is None:
+            continue
+        # passa audio al layer 2
+```
+
+API pubblica: `start()`, `stop()`, `get_recording(timeout)`, `on_speech_start` (callback leggera), `echo_canceller` (aggancio opzionale).
+
+## Pipeline interna
+
+```
+microfono -> AudioInput -> [echo_canceller] -> AudioPreprocessor -> VADDetector -> AudioSegmenter -> coda recordings
+                                  |                (high-pass)        (RMS)          (macchina a stati)
+                                  +--- il segmenter riceve il frame RAW, il VAD usa quello filtrato
+```
+
+## File
+
+| File | Responsabilità |
+|---|---|
+| `main_layer1.py` | Orchestrazione, thread di ascolto, coda di uscita |
+| `layer1_func/audio_input.py` | Stream del microfono e coda dei frame (scarta i più vecchi se piena) |
+| `layer1_func/VAD_denoiser.py` | Filtro high-pass (Butterworth) per togliere le basse frequenze |
+| `layer1_func/vad_detector.py` | Decide se un frame è voce (soglia RMS) |
+| `layer1_func/audio_segmenter.py` | Decide inizio e fine della registrazione |
+
+## Parametri principali (`VADConfig`)
+
+|
